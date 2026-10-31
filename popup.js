@@ -6,10 +6,10 @@ let currentMoveIdx = -1;
 let moveClassifications = [];
 let evalChart = null;
 
-const puzzles = [
-    { id: 1049, title: "Queen Sacrifice", fen: "r1bqkb1r/pppp1ppp/2n5/4p3/2B1n3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 5", solution: ["xf7#", "xf7+", "Qxf7#"], hint: "Target the f7 square with your Queen and Bishop!" }
-];
-let currentPuzzle = puzzles[0];
+let currentPuzzle = null;
+let puzzleGame = null;
+let puzzleSolutionMoves = [];
+let puzzleMoveIndex = 0;
 
 document.addEventListener("DOMContentLoaded", function() {
     board = Chessboard('board', {
@@ -19,7 +19,12 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     initChart();
-    loadFromLocalStorage();
+    
+    const saved = JSON.parse(localStorage.getItem('openchess_saved_games') || '[]');
+    if (saved.length > 0) {
+        document.getElementById('pgn-input').value = saved[0].pgn;
+        processPGN(false);
+    }
 });
 
 function switchTab(tabId) {
@@ -34,16 +39,99 @@ function switchTab(tabId) {
     if (tabId === 'puzzles') {
         if (!puzzleBoard) {
             puzzleBoard = Chessboard('puzzle-board', {
-                position: currentPuzzle.fen,
+                position: 'start',
                 draggable: true,
                 pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
                 onDrop: handlePuzzleMove
             });
-        } else {
-            puzzleBoard.resize();
         }
+        fetchNewPuzzle();
     }
     if (tabId === 'saved') renderSavedGames();
+}
+
+async function fetchNewPuzzle() {
+    document.getElementById('puzzle-status').innerHTML = '<span style="color:#22d3ee;">Loading fresh puzzle from Lichess...</span>';
+    try {
+        // Lichess public daily puzzle endpoint
+        const response = await fetch('https://lichess.org/api/puzzle/daily');
+        const data = await response.json();
+        
+        const fenBeforePuzzle = data.game.fen;
+        const uciMoves = data.puzzle.solution; // Array of moves like ["e2e4", "e7e5"]
+        
+        puzzleGame = new Chess(fenBeforePuzzle);
+        
+        // The puzzle starts *after* the opponent's setup move
+        const setupMoveUCI = uciMoves[0];
+        puzzleGame.move({
+            from: setupMoveUCI.substring(0, 2),
+            to: setupMoveUCI.substring(2, 4),
+            promotion: setupMoveUCI.length > 4 ? setupMoveUCI[4] : undefined
+        });
+
+        currentPuzzle = {
+            rating: data.puzzle.rating,
+            fen: puzzleGame.fen()
+        };
+
+        // Remaining moves form the solution sequence the user must play
+        puzzleSolutionMoves = uciMoves.slice(1);
+        puzzleMoveIndex = 0;
+
+        puzzleBoard.position(currentPuzzle.fen);
+        puzzleBoard.resize();
+        document.getElementById('puzzle-status').innerHTML = `<span>Rating: <b>${currentPuzzle.rating}</b> — White to move and find the best continuation!</span>`;
+    } catch (err) {
+        document.getElementById('puzzle-status').innerHTML = '<span style="color:#fb7185;">Failed to load puzzle. Check internet connection.</span>';
+    }
+}
+
+function handlePuzzleMove(source, target) {
+    if (!puzzleGame) return 'snapback';
+
+    const attemptedMoveUCI = source + target;
+    const expectedMoveUCI = puzzleSolutionMoves[puzzleMoveIndex];
+
+    // Check if user's move matches the expected solution move
+    if (attemptedMoveUCI === expectedMoveUCI.substring(0, 4)) {
+        // Make move on internal puzzle state
+        puzzleGame.move({
+            from: source,
+            to: target,
+            promotion: attemptedMoveUCI.length > 4 ? attemptedMoveUCI[4] : undefined
+        });
+        puzzleBoard.position(puzzleGame.fen());
+        puzzleMoveIndex++;
+
+        // Check if puzzle is completed successfully
+        if (puzzleMoveIndex >= puzzleSolutionMoves.length) {
+            document.getElementById('puzzle-status').innerHTML = '<span style="color:#34d399; font-weight:bold;">Puzzle Solved! 🎉 Loading next...</span>';
+            setTimeout(fetchNewPuzzle, 1800);
+            return;
+        }
+
+        // Automatically play the opponent's next forced response move if available
+        if (puzzleMoveIndex < puzzleSolutionMoves.length) {
+            setTimeout(() => {
+                const opponentMoveUCI = puzzleSolutionMoves[puzzleMoveIndex];
+                puzzleGame.move({
+                    from: opponentMoveUCI.substring(0, 2),
+                    to: opponentMoveUCI.substring(2, 4),
+                    promotion: opponentMoveUCI.length > 4 ? opponentMoveUCI[4] : undefined
+                });
+                puzzleBoard.position(puzzleGame.fen());
+                puzzleMoveIndex++;
+            }, 300);
+        }
+    } else {
+        document.getElementById('puzzle-status').innerHTML = '<span style="color:#fb7185; font-weight:bold;">Incorrect move! Try again.</span>';
+        return 'snapback';
+    }
+}
+
+function showPuzzleHint() {
+    document.getElementById('puzzle-status').innerHTML = `<span style="color:#fbbf24;">Hint: Calculate the forcing sequence carefully!</span>`;
 }
 
 function handleFileUpload(e) {
@@ -52,12 +140,12 @@ function handleFileUpload(e) {
     const reader = new FileReader();
     reader.onload = function(evt) {
         document.getElementById('pgn-input').value = evt.target.result;
-        processPGN();
+        processPGN(true);
     };
     reader.readAsText(file);
 }
 
-function processPGN() {
+function processPGN(shouldSave = true) {
     const pgnText = document.getElementById('pgn-input').value.trim();
     if (!pgnText) return alert("Please paste PGN text first!");
 
@@ -83,7 +171,9 @@ function processPGN() {
     updateChart();
     board.resize();
 
-    saveToLocalStorage(pgnText, whiteName, blackName);
+    if (shouldSave) {
+        saveToLocalStorage(pgnText, whiteName, blackName);
+    }
 }
 
 function classifyMoves() {
@@ -177,41 +267,19 @@ function updateChart() {
     evalChart.update();
 }
 
-function handlePuzzleMove(source, target) {
-    const pGame = new Chess(currentPuzzle.fen);
-    const move = pGame.move({ from: source, to: target, promotion: 'q' });
-    if (move === null) return 'snapback';
-    if (currentPuzzle.solution.includes(move.san) || currentPuzzle.solution.some(s => move.san.endsWith(s))) {
-        document.getElementById('puzzle-status').innerHTML = '<span style="color:#34d399; font-weight:bold;">Correct Solution!</span>';
-    } else {
-        document.getElementById('puzzle-status').innerHTML = '<span style="color:#fb7185; font-weight:bold;">Incorrect, try again!</span>';
-        return 'snapback';
-    }
-}
-
-function showPuzzleHint() {
-    document.getElementById('puzzle-status').innerHTML = `<span style="color:#fbbf24;">Hint: ${currentPuzzle.hint}</span>`;
-}
-
 function saveToLocalStorage(pgn, white, black) {
     let saved = JSON.parse(localStorage.getItem('openchess_saved_games') || '[]');
+    saved = saved.filter(g => g.pgn !== pgn);
     saved.unshift({ pgn, white, black, date: new Date().toLocaleDateString() });
+    if (saved.length > 15) saved.pop();
     localStorage.setItem('openchess_saved_games', JSON.stringify(saved));
-}
-
-function loadFromLocalStorage() {
-    const saved = JSON.parse(localStorage.getItem('openchess_saved_games') || '[]');
-    if (saved.length > 0) {
-        document.getElementById('pgn-input').value = saved[0].pgn;
-        processPGN();
-    }
 }
 
 function renderSavedGames() {
     const container = document.getElementById('saved-games-list');
     const saved = JSON.parse(localStorage.getItem('openchess_saved_games') || '[]');
     if (saved.length === 0) {
-        container.innerHTML = '<p style="color:#64748b; font-size:12px; text-align:center;">No saved games.</p>';
+        container.innerHTML = '<p style="color:#64748b; font-size:12px; text-align:center;">No saved games yet. Analyze a PGN to save it!</p>';
         return;
     }
     let html = '';
@@ -225,7 +293,7 @@ function loadSaved(idx) {
     const saved = JSON.parse(localStorage.getItem('openchess_saved_games') || '[]');
     if (saved[idx]) {
         document.getElementById('pgn-input').value = saved[idx].pgn;
-        processPGN();
+        processPGN(false);
         switchTab('review');
     }
 }
