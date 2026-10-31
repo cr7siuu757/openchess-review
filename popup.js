@@ -53,16 +53,14 @@ function switchTab(tabId) {
 async function fetchNewPuzzle() {
     document.getElementById('puzzle-status').innerHTML = '<span style="color:#22d3ee;">Loading fresh puzzle from Lichess...</span>';
     try {
-        // Lichess public daily puzzle endpoint
         const response = await fetch('https://lichess.org/api/puzzle/daily');
         const data = await response.json();
         
         const fenBeforePuzzle = data.game.fen;
-        const uciMoves = data.puzzle.solution; // Array of moves like ["e2e4", "e7e5"]
+        const uciMoves = data.puzzle.solution;
         
         puzzleGame = new Chess(fenBeforePuzzle);
         
-        // The puzzle starts *after* the opponent's setup move
         const setupMoveUCI = uciMoves[0];
         puzzleGame.move({
             from: setupMoveUCI.substring(0, 2),
@@ -75,7 +73,6 @@ async function fetchNewPuzzle() {
             fen: puzzleGame.fen()
         };
 
-        // Remaining moves form the solution sequence the user must play
         puzzleSolutionMoves = uciMoves.slice(1);
         puzzleMoveIndex = 0;
 
@@ -93,9 +90,7 @@ function handlePuzzleMove(source, target) {
     const attemptedMoveUCI = source + target;
     const expectedMoveUCI = puzzleSolutionMoves[puzzleMoveIndex];
 
-    // Check if user's move matches the expected solution move
     if (attemptedMoveUCI === expectedMoveUCI.substring(0, 4)) {
-        // Make move on internal puzzle state
         puzzleGame.move({
             from: source,
             to: target,
@@ -104,14 +99,12 @@ function handlePuzzleMove(source, target) {
         puzzleBoard.position(puzzleGame.fen());
         puzzleMoveIndex++;
 
-        // Check if puzzle is completed successfully
         if (puzzleMoveIndex >= puzzleSolutionMoves.length) {
             document.getElementById('puzzle-status').innerHTML = '<span style="color:#34d399; font-weight:bold;">Puzzle Solved! 🎉 Loading next...</span>';
             setTimeout(fetchNewPuzzle, 1800);
             return;
         }
 
-        // Automatically play the opponent's next forced response move if available
         if (puzzleMoveIndex < puzzleSolutionMoves.length) {
             setTimeout(() => {
                 const opponentMoveUCI = puzzleSolutionMoves[puzzleMoveIndex];
