@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "openchess.review",
+  "version": "1.0.0",
+  "description": "Free Open-Source Chess Game Analysis & Tactical Puzzles Studio",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "storage"
+  ]
+}
