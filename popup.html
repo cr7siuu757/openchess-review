@@ -6,94 +6,88 @@
     <title>openchess.review</title>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chessboard.js & Chess.js -->
-    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Local Chessboard CSS -->
+    <link rel="stylesheet" href="chessboard-1.0.0.min.css">
+    
+    <!-- Local Library Scripts -->
+    <script src="jquery.min.js"></script>
+    <script src="chessboard-1.0.0.min.js"></script>
+    <script src="chess.min.js"></script>
+    <script src="chart.min.js"></script>
     
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <div class="logo" onclick="switchTab('review')">
-            <svg style="width:26px; height:26px; color:#22d3ee;" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M34 10C24 10 18 16 18 26C18 30 20 34 22 37L16 52H48L44 40C48 36 50 30 50 24C50 14 42 10 34 10Z" fill="currentColor" fill-opacity="0.2"/>
-                <path d="M32 6C20 6 14 14 14 26C14 31 16 35 19 39L12 54H52L45 41C49 37 51 31 51 24C51 12 42 6 32 6ZM32 10C40 10 47 15 47 24C47 29 44 34 41 37L46 48H18L23 37C20 33 18 29 18 24C18 15 24 10 32 10Z" fill="currentColor"/>
-                <circle cx="44" cy="20" r="12" stroke="#f59e0b" stroke-width="4" fill="none"/>
-                <line x1="53" y1="29" x2="60" y2="36" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/>
-            </svg>
-            <span>openchess<span style="color:#22d3ee;">.review</span></span>
-        </div>
-        <nav>
-            <button onclick="switchTab('review')" id="tab-review" class="active">Review</button>
-            <button onclick="switchTab('puzzles')" id="tab-puzzles">Puzzles</button>
-            <button onclick="switchTab('saved')" id="tab-saved">Saved</button>
-        </nav>
-    </header>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1><i class="fa-solid fa-chess-knight"></i> openchess.review</h1>
+            <nav class="tabs">
+                <button id="tab-review" class="active" onclick="switchTab('review')"><i class="fa-solid fa-magnifying-glass-chart"></i> Review</button>
+                <button id="tab-puzzles" onclick="switchTab('puzzles')"><i class="fa-solid fa-puzzle-piece"></i> Puzzles</button>
+                <button id="tab-saved" onclick="switchTab('saved')"><i class="fa-solid fa-bookmark"></i> Saved</button>
+            </nav>
+        </header>
 
-    <main>
-        <!-- REVIEW TAB -->
-        <section id="chapter-review">
-            <div id="import-section" class="card">
-                <h2>Import PGN Game</h2>
-                <textarea id="pgn-input" rows="3" placeholder="Paste PGN here..."></textarea>
-                <div class="import-actions">
-                    <input type="file" id="pgn-file" accept=".pgn" style="display:none;" onchange="handleFileUpload(event)">
-                    <button onclick="document.getElementById('pgn-file').click()" class="btn-secondary">Upload</button>
-                    <button onclick="processPGN()" class="btn-primary">Analyze</button>
+        <!-- Chapter: Review -->
+        <div id="chapter-review" class="chapter">
+            <div class="input-section">
+                <textarea id="pgn-input" placeholder="Paste your PGN text here..."></textarea>
+                <div class="input-actions">
+                    <button class="btn-primary" onclick="processPGN(true)"><i class="fa-solid fa-play"></i> Analyze PGN</button>
+                    <label class="btn-secondary file-upload-label">
+                        <i class="fa-solid fa-folder-open"></i> Upload PGN
+                        <input type="file" id="pgn-file" accept=".pgn" style="display:none;" onchange="handleFileUpload(event)">
+                    </label>
                 </div>
             </div>
 
-            <div id="review-studio" class="hidden review-grid">
-                <div class="board-container">
-                    <div class="player-header" id="player-black">Black</div>
-                    <div class="board-wrapper"><div id="board"></div></div>
-                    <div class="player-header" id="player-white">White</div>
+            <div id="review-studio" class="review-studio hidden">
+                <div class="board-column">
+                    <div class="player-tag" id="player-black">Black Player</div>
+                    <div id="board" style="width: 280px;"></div>
+                    <div class="player-tag" id="player-white">White Player</div>
+                    
                     <div class="board-controls">
-                        <button onclick="boardStart()" class="btn-secondary"><i class="fa-solid fa-backward-step"></i></button>
-                        <button onclick="boardPrev()" class="btn-secondary"><i class="fa-solid fa-chevron-left"></i></button>
-                        <button onclick="boardNext()" class="btn-secondary"><i class="fa-solid fa-chevron-right"></i></button>
-                        <button onclick="boardEnd()" class="btn-secondary"><i class="fa-solid fa-forward-step"></i></button>
+                        <button onclick="boardStart()"><i class="fa-solid fa-backward-step"></i></button>
+                        <button onclick="boardPrev()"><i class="fa-solid fa-chevron-left"></i></button>
+                        <button onclick="boardNext()"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button onclick="boardEnd()"><i class="fa-solid fa-forward-step"></i></button>
                     </div>
                 </div>
 
-                <div class="analysis-sidebar">
-                    <div class="card summary-card">
-                        <h3>Move Summary</h3>
-                        <div id="classification-counts"></div>
-                    </div>
-                    <div class="card chart-card">
-                        <canvas id="evalChart"></canvas>
-                    </div>
-                    <div class="card notation-card">
-                        <h3>Notation</h3>
-                        <div id="notation-list"></div>
-                    </div>
+                <div class="sidebar-column">
+                    <div class="section-title">Accuracy & Breakdown</div>
+                    <div id="classification-counts" class="classification-counts"></div>
+                    
+                    <div class="section-title">Move Notation</div>
+                    <div id="notation-list" class="notation-list"></div>
                 </div>
             </div>
-        </section>
 
-        <!-- PUZZLES TAB -->
-        <section id="chapter-puzzles" class="hidden">
-            <div class="card puzzle-card-box">
-                <h2>Tactical Puzzle</h2>
-                <p id="puzzle-status">White to move and find the winning tactic!</p>
-                <div class="puzzle-board-wrapper"><div id="puzzle-board"></div></div>
-                <button onclick="showPuzzleHint()" class="btn-secondary" style="width:100%;">Get Hint</button>
+            <div class="eval-chart-container">
+                <canvas id="evalChart"></canvas>
             </div>
-        </section>
+        </div>
 
-        <!-- SAVED TAB -->
-        <section id="chapter-saved" class="hidden">
-            <div class="card">
-                <h2>Saved Games</h2>
-                <div id="saved-games-list"></div>
+        <!-- Chapter: Puzzles -->
+        <div id="chapter-puzzles" class="chapter hidden">
+            <div class="puzzle-container">
+                <div id="puzzle-board" style="width: 280px;"></div>
+                <div class="puzzle-info">
+                    <div id="puzzle-status" class="puzzle-status">Loading puzzle...</div>
+                    <button class="btn-secondary" onclick="showPuzzleHint()"><i class="fa-solid fa-lightbulb"></i> Hint</button>
+                    <button class="btn-primary" onclick="fetchNewPuzzle()"><i class="fa-solid fa-rotate-right"></i> Next Puzzle</button>
+                </div>
             </div>
-        </section>
-    </main>
+        </div>
+
+        <!-- Chapter: Saved Games -->
+        <div id="chapter-saved" class="chapter hidden">
+            <div class="section-title">Saved Games History</div>
+            <div id="saved-games-list" class="saved-games-list"></div>
+        </div>
+    </div>
 
     <script src="popup.js"></script>
 </body>
